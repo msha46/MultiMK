@@ -1,0 +1,124 @@
+name: Build MultiMK
+
+on:
+  push:
+    branches: ["**"]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      CONFIGURATION: Release
+      WDK_URL: https://go.microsoft.com/fwlink/?linkid=2281025
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Check whether WDK tooling is already present
+        id: wdk_check
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $inf2cat = Get-Command inf2cat.exe -ErrorAction SilentlyContinue
+          if ($null -ne $inf2cat) {
+            Write-Host "WDK tooling already available at $($inf2cat.Source)."
+            "present=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          }
+          else {
+            Write-Host "WDK tooling not found; installer will be downloaded."
+            "present=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          }
+
+      - name: Download WDK installer with retry and integrity checks
+        if: steps.wdk_check.outputs.present != 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installerPath = Join-Path $pwd 'wdksetup.exe'
+
+          if (Test-Path $installerPath) {
+            Remove-Item $installerPath -Force
+          }
+
+          $attempts = 5
+          for ($attempt = 1; $attempt -le $attempts; $attempt++) {
+            Write-Host "Downloading WDK installer (attempt $attempt/$attempts)..."
+            try {
+              Invoke-WebRequest -Uri $env:WDK_URL -OutFile $installerPath -MaximumRedirection 10
+              $file = Get-Item $installerPath
+
+              # The Microsoft fwlink commonly returns a small signed bootstrap installer,
+              # so do not gate on an arbitrary minimum size.
+              if ($file.Length -le 0) {
+                throw "Downloaded installer is empty."
+              }
+
+              $signature = Get-AuthenticodeSignature -FilePath $installerPath
+              if ($signature.Status -ne 'Valid') {
+                throw "Installer signature validation failed: $($signature.Status)"
+              }
+
+              Write-Host "WDK installer downloaded and signature validated."
+              break
+            }
+            catch {
+              Write-Warning $_
+              if (Test-Path $installerPath) {
+                Remove-Item $installerPath -Force
+              }
+
+              if ($attempt -eq $attempts) {
+                throw "Failed to download a valid WDK installer after $attempts attempts."
+              }
+
+              Start-Sleep -Seconds (5 * $attempt)
+            }
+          }
+
+      - name: Install WDK (Enterprise WDK/WDK build tools)
+        if: steps.wdk_check.outputs.present != 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installerPath = Join-Path $pwd 'wdksetup.exe'
+          $proc = Start-Process -FilePath $installerPath -ArgumentList '/quiet /norestart /features OptionId.WindowsDriverKit' -Wait -PassThru
+          if ($proc.ExitCode -ne 0) {
+            throw "WDK installer exited with code $($proc.ExitCode)."
+          }
+
+      - name: Build UI
+        run: dotnet publish ui/IsolatedInputApp/IsolatedInputApp.csproj -c ${{ env.CONFIGURATION }} -r win-x64 --self-contained true -p:PublishSingleFile=true
+
+      - name: Build Driver (placeholder command)
+        shell: pwsh
+        run: |
+          # Replace with real msbuild target once .sln/.vcxproj is added.
+          Write-Host "Invoke MSBuild for driver using WDK toolset"
+
+      - name: Build Service (placeholder command)
+        shell: pwsh
+        run: |
+          # Replace with cmake/msbuild for service project.
+          Write-Host "Invoke C++ service build"
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+          Copy-Item ui/IsolatedInputApp/bin/Release/net8.0-windows/win-x64/publish/* artifacts -Recurse -Force
+          Copy-Item config/config.yml artifacts/config.yml -Force
+          Compress-Archive -Path artifacts/* -DestinationPath MultiMK-win-x64.zip -Force
+
+      - name: Upload packaged executable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MultiMK-win-x64
+          path: |
+            MultiMK-win-x64.zip
+            artifacts/
