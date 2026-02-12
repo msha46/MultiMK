@@ -20,11 +20,57 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Download WDK installer with retry and integrity checks
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installerPath = Join-Path $pwd 'wdksetup.exe'
+
+          if (Test-Path $installerPath) {
+            Remove-Item $installerPath -Force
+          }
+
+          $attempts = 5
+          for ($attempt = 1; $attempt -le $attempts; $attempt++) {
+            Write-Host "Downloading WDK installer (attempt $attempt/$attempts)..."
+            try {
+              Invoke-WebRequest -Uri $env:WDK_URL -OutFile $installerPath -MaximumRedirection 10
+              $file = Get-Item $installerPath
+              if ($file.Length -lt 10MB) {
+                throw "Downloaded file is unexpectedly small ($($file.Length) bytes)."
+              }
+
+              $signature = Get-AuthenticodeSignature -FilePath $installerPath
+              if ($signature.Status -ne 'Valid') {
+                throw "Installer signature validation failed: $($signature.Status)"
+              }
+
+              Write-Host "WDK installer downloaded and signature validated."
+              break
+            }
+            catch {
+              Write-Warning $_
+              if (Test-Path $installerPath) {
+                Remove-Item $installerPath -Force
+              }
+
+              if ($attempt -eq $attempts) {
+                throw "Failed to download a valid WDK installer after $attempts attempts."
+              }
+
+              Start-Sleep -Seconds (5 * $attempt)
+            }
+          }
+
       - name: Install WDK (Enterprise WDK/WDK build tools)
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri $env:WDK_URL -OutFile wdksetup.exe
-          Start-Process -FilePath .\wdksetup.exe -ArgumentList '/quiet /norestart /features OptionId.WindowsDriverKit' -Wait
+          $ErrorActionPreference = 'Stop'
+          $installerPath = Join-Path $pwd 'wdksetup.exe'
+          $proc = Start-Process -FilePath $installerPath -ArgumentList '/quiet /norestart /features OptionId.WindowsDriverKit' -Wait -PassThru
+          if ($proc.ExitCode -ne 0) {
+            throw "WDK installer exited with code $($proc.ExitCode)."
+          }
 
       - name: Build UI
         run: dotnet publish ui/IsolatedInputApp/IsolatedInputApp.csproj -c ${{ env.CONFIGURATION }} -r win-x64 --self-contained true -p:PublishSingleFile=true
