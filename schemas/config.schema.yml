@@ -1,0 +1,31 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: MultiMK Input Isolation Config
+type: object
+required: [devices, settings]
+properties:
+  devices:
+    type: array
+    minItems: 1
+    items:
+      type: object
+      required: [keyboard, mouse, session]
+      properties:
+        keyboard:
+          type: string
+          pattern: "^HID\\\\VID_[0-9A-Fa-f]{4}&PID_[0-9A-Fa-f]{4}"
+        mouse:
+          type: string
+          pattern: "^HID\\\\VID_[0-9A-Fa-f]{4}&PID_[0-9A-Fa-f]{4}"
+        session:
+          type: integer
+          minimum: 1
+  settings:
+    type: object
+    required: [driver_mode, isolation]
+    properties:
+      driver_mode:
+        type: string
+        enum: [filter, virtual-miniport]
+      isolation:
+        type: string
+        enum: [kernel]

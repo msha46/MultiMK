@@ -1,0 +1,10 @@
+devices:
+  - keyboard: "HID\\VID_046D&PID_C31C"
+    mouse: "HID\\VID_046D&PID_C077"
+    session: 2
+  - keyboard: "HID\\VID_1A2C&PID_2124"
+    mouse: "HID\\VID_1A2C&PID_2123"
+    session: 3
+settings:
+  driver_mode: "filter"
+  isolation: "kernel"

@@ -1,0 +1,39 @@
+[Version]
+Signature="$WINDOWS NT$"
+Class=HIDClass
+ClassGuid={745a17a0-74d3-11d0-b6fe-00a0c90f57da}
+Provider=%ManufacturerName%
+CatalogFile=IsolatedInputDriver.cat
+DriverVer=02/12/2026,1.0.0.0
+
+[Manufacturer]
+%ManufacturerName%=Standard,NTamd64
+
+[Standard.NTamd64]
+%IsolatedInputFilter.DeviceDesc%=IsolatedInputFilter_Install, HID\VID_####&PID_####
+
+[IsolatedInputFilter_Install.NT]
+CopyFiles=DriverCopyFiles
+
+[IsolatedInputFilter_Install.NT.HW]
+AddReg=LowerFilterAddReg
+
+[LowerFilterAddReg]
+HKR, , LowerFilters, 0x00010000, "IsolatedInputDriver"
+
+[DriverCopyFiles]
+IsolatedInputDriver.sys
+
+[DestinationDirs]
+DriverCopyFiles=12
+
+[SourceDisksNames]
+1 = %DiskName%,,,
+
+[SourceDisksFiles]
+IsolatedInputDriver.sys = 1
+
+[Strings]
+ManufacturerName="MultiMK"
+IsolatedInputFilter.DeviceDesc="MultiMK Isolated Input Filter Driver"
+DiskName="MultiMK Driver Disk"

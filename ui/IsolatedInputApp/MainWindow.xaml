@@ -1,0 +1,38 @@
+<Window x:Class="IsolatedInputApp.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MultiMK Isolated Input Controller" Height="650" Width="1000">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="2*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <GroupBox Header="Detected HID Devices" Grid.Row="0" Margin="0,0,0,12">
+            <DataGrid ItemsSource="{Binding HidDevices}" AutoGenerateColumns="False" IsReadOnly="True">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Type" Binding="{Binding Type}"/>
+                    <DataGridTextColumn Header="Device Instance ID" Binding="{Binding DeviceInstanceId}" Width="*"/>
+                    <DataGridTextColumn Header="Assigned Session" Binding="{Binding SessionId}"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </GroupBox>
+
+        <GroupBox Header="Pairs & Session Mapping" Grid.Row="1" Margin="0,0,0,12">
+            <DataGrid ItemsSource="{Binding DevicePairs}" AutoGenerateColumns="False">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Keyboard" Binding="{Binding KeyboardId}" Width="*"/>
+                    <DataGridTextColumn Header="Mouse" Binding="{Binding MouseId}" Width="*"/>
+                    <DataGridTextColumn Header="Session" Binding="{Binding SessionId}"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </GroupBox>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Refresh Devices" Command="{Binding RefreshCommand}" Margin="0,0,8,0"/>
+            <Button Content="Start Isolation" Command="{Binding StartCommand}" Margin="0,0,8,0"/>
+            <Button Content="Stop Isolation" Command="{Binding StopCommand}"/>
+        </StackPanel>
+    </Grid>
+</Window>

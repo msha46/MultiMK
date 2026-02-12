@@ -1,0 +1,58 @@
+name: Build MultiMK
+
+on:
+  push:
+    branches: ["**"]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      CONFIGURATION: Release
+      WDK_URL: https://go.microsoft.com/fwlink/?linkid=2281025
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install WDK (Enterprise WDK/WDK build tools)
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri $env:WDK_URL -OutFile wdksetup.exe
+          Start-Process -FilePath .\wdksetup.exe -ArgumentList '/quiet /norestart /features OptionId.WindowsDriverKit' -Wait
+
+      - name: Build UI
+        run: dotnet publish ui/IsolatedInputApp/IsolatedInputApp.csproj -c ${{ env.CONFIGURATION }} -r win-x64 --self-contained true -p:PublishSingleFile=true
+
+      - name: Build Driver (placeholder command)
+        shell: pwsh
+        run: |
+          # Replace with real msbuild target once .sln/.vcxproj is added.
+          Write-Host "Invoke MSBuild for driver using WDK toolset"
+
+      - name: Build Service (placeholder command)
+        shell: pwsh
+        run: |
+          # Replace with cmake/msbuild for service project.
+          Write-Host "Invoke C++ service build"
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+          Copy-Item ui/IsolatedInputApp/bin/Release/net8.0-windows/win-x64/publish/* artifacts -Recurse -Force
+          Copy-Item config/config.yml artifacts/config.yml -Force
+          Compress-Archive -Path artifacts/* -DestinationPath MultiMK-win-x64.zip -Force
+
+      - name: Upload packaged executable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MultiMK-win-x64
+          path: |
+            MultiMK-win-x64.zip
+            artifacts/
